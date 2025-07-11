@@ -1,0 +1,442 @@
+import { useCallback, useState, useRef } from 'react';
+import { useGitHubApi } from './useGitHubApi';
+import { useDatabase } from './useDatabase';
+import OpenAI from 'openai';
+
+// Enhanced error handling utility
+const handleError = (error, context, showNotification) => {
+  console.error(`Error in ${context}:`, error);
+  showNotification(`${context} failed: ${error.message}`, 'error');
+  throw error;
+};
+
+// Code analysis patterns for common issues
+const CODE_ANALYSIS_PATTERNS = {
+  security: [
+    /eval\s*\(/g,
+    /innerHTML\s*=/g,
+    /document\.write\s*\(/g,
+    /\.html\s*\(/g,
+    /password.*=.*['"]/gi,
+    /api.*key.*=.*['"]/gi
+  ],
+  performance: [
+    /for\s*\(.*\.length/g,
+    /querySelector(?!All)/g,
+    /\.forEach\s*\(.*\.push/g,
+    /new\s+RegExp\s*\(/g
+  ],
+  maintainability: [
+    /function\s+\w+\s*\([^)]*\)\s*\{[\s\S]{500,}/g, // Large functions
+    /if\s*\(.*\)\s*\{[\s\S]*if\s*\(.*\)\s*\{[\s\S]*if\s*\(/g, // Deep nesting
+    /console\.log/g,
+    /debugger/g
+  ]
+};
+
+export const useAutomationActions = (
+  repoUrl,
+  githubToken,
+  repoData,
+  setRepoData,
+  analysisResults,
+  setAnalysisResults,
+  automationConfig,
+  setIsProcessing,
+  setProcessingMessage,
+  addAutomationEntry,
+  showNotification
+) => {
+  const { 
+    fetchRepoData, 
+    getRepositoryStructure, 
+    createGitHubIssue,
+    createPullRequest,
+    updateFile,
+    getBranchContents
+  } = useGitHubApi(githubToken, showNotification);
+  
+  const { saveAutomationEntry: saveAutomationEntryToDB } = useDatabase(showNotification);
+  
+  // OpenAI client with error handling
+  const openaiRef = useRef(null);
+  const [isOpenAIConfigured, setIsOpenAIConfigured] = useState(false);
+  
+  const initializeOpenAI = useCallback(() => {
+    if (openaiRef.current) return openaiRef.current;
+    
+    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_OPENAI_API_KEY') {
+      showNotification('OpenAI API key not configured', 'warning');
+      return null;
+    }
+    
+    openaiRef.current = new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    });
+    setIsOpenAIConfigured(true);
+    return openaiRef.current;
+  }, [showNotification]);
+
+  // Enhanced repository structure analysis
+  const analyzeCodeStructure = useCallback(async (files) => {
+    const issues = [];
+    const suggestions = [];
+    
+    for (const file of files) {
+      if (!file.content || !file.name.match(/\.(js|jsx|ts|tsx|py|java|cpp|c)$/)) {
+        continue;
+      }
+      
+      const fileIssues = {
+        fileName: file.name,
+        path: file.path,
+        security: [],
+        performance: [],
+        maintainability: []
+      };
+      
+      // Check security patterns
+      CODE_ANALYSIS_PATTERNS.security.forEach(pattern => {
+        const matches = file.content.match(pattern);
+        if (matches) {
+          fileIssues.security.push({
+            pattern: pattern.source,
+            matches: matches.length,
+            severity: 'high'
+          });
+        }
+      });
+      
+      // Check performance patterns
+      CODE_ANALYSIS_PATTERNS.performance.forEach(pattern => {
+        const matches = file.content.match(pattern);
+        if (matches) {
+          fileIssues.performance.push({
+            pattern: pattern.source,
+            matches: matches.length,
+            severity: 'medium'
+          });
+        }
+      });
+      
+      // Check maintainability patterns
+      CODE_ANALYSIS_PATTERNS.maintainability.forEach(pattern => {
+        const matches = file.content.match(pattern);
+        if (matches) {
+          fileIssues.maintainability.push({
+            pattern: pattern.source,
+            matches: matches.length,
+            severity: 'low'
+          });
+        }
+      });
+      
+      if (fileIssues.security.length || fileIssues.performance.length || fileIssues.maintainability.length) {
+        issues.push(fileIssues);
+      }
+    }
+    
+    return { issues, suggestions };
+  }, []);
+
+  // Enhanced AI-powered code analysis
+  const analyzeWithAI = useCallback(async (codeContent, fileName) => {
+    const openai = initializeOpenAI();
+    if (!openai) {
+      return { suggestions: [], severity: 'info' };
+    }
+    
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // More cost-effective model
+        messages: [
+          {
+            role: "system",
+            content: `You are a senior code reviewer. Analyze the following code for:
+            1. Security vulnerabilities
+            2. Performance issues
+            3. Code maintainability
+            4. Best practices violations
+            
+            Return a JSON object with:
+            - issues: array of issues found
+            - suggestions: array of improvement suggestions
+            - severity: overall severity (low, medium, high, critical)
+            
+            Be concise and actionable.`
+          },
+          {
+            role: "user",
+            content: `File: ${fileName}\n\n${codeContent.substring(0, 4000)}` // Limit content to avoid token limits
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.1
+      });
+      
+      const analysis = JSON.parse(response.choices[0].message.content);
+      return analysis;
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      return { suggestions: [], severity: 'info' };
+    }
+  }, [initializeOpenAI]);
+
+  // Main repository analysis function
+  const analyzeRepository = useCallback(async () => {
+    if (!repoUrl || !githubToken) {
+      showNotification('Repository URL and GitHub token are required', 'error');
+      return;
+    }
+    
+    setIsProcessing(true);
+    setProcessingMessage('Fetching repository structure...');
+    
+    try {
+      // Parse repository URL
+      const urlParts = repoUrl.replace('https://github.com/', '').split('/');
+      const [owner, repo] = urlParts;
+      
+      if (!owner || !repo) {
+        throw new Error('Invalid repository URL format');
+      }
+      
+      // Fetch repository structure
+      const structure = await getRepositoryStructure(owner, repo);
+      
+      setProcessingMessage('Analyzing code structure...');
+      const structureAnalysis = await analyzeCodeStructure(structure.files || []);
+      
+      setProcessingMessage('Running AI analysis...');
+      const aiAnalyses = [];
+      
+      // Run AI analysis on key files (limit to prevent API overuse)
+      const keyFiles = (structure.files || []).filter(file => 
+        file.name.match(/\.(js|jsx|ts|tsx|py)$/) && 
+        file.content && 
+        file.content.length > 100
+      ).slice(0, 5); // Limit to 5 files
+      
+      for (const file of keyFiles) {
+        const aiAnalysis = await analyzeWithAI(file.content, file.name);
+        aiAnalyses.push({
+          fileName: file.name,
+          path: file.path,
+          ...aiAnalysis
+        });
+      }
+      
+      // Combine analyses
+      const combinedAnalysis = {
+        repository: { owner, repo },
+        timestamp: new Date().toISOString(),
+        structure_analysis: structureAnalysis,
+        ai_analysis: aiAnalyses,
+        summary: {
+          total_files_analyzed: keyFiles.length,
+          issues_found: structureAnalysis.issues.length,
+          ai_suggestions: aiAnalyses.reduce((acc, analysis) => acc + (analysis.suggestions?.length || 0), 0)
+        }
+      };
+      
+      setAnalysisResults(combinedAnalysis);
+      
+      // Create GitHub issues for critical problems
+      await createIssuesForCriticalProblems(combinedAnalysis, owner, repo);
+      
+      // Save to database
+      await saveAutomationEntryToDB({
+        repoUrl,
+        analysis: combinedAnalysis,
+        timestamp: new Date().toISOString()
+      });
+      
+      showNotification('Repository analysis completed successfully!', 'success');
+      
+    } catch (error) {
+      handleError(error, 'Repository analysis', showNotification);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+    }
+  }, [
+    repoUrl, 
+    githubToken, 
+    getRepositoryStructure, 
+    analyzeCodeStructure, 
+    analyzeWithAI, 
+    setAnalysisResults, 
+    setIsProcessing, 
+    setProcessingMessage, 
+    showNotification,
+    saveAutomationEntryToDB
+    createIssuesForCriticalProblems 
+  ]);
+    
+    // Collect critical issues from AI analysis
+    analysis.ai_analysis.forEach(aiAnalysis => {
+      if (aiAnalysis.severity === 'critical' || aiAnalysis.severity === 'high') {
+        criticalIssues.push({
+          title: `Code Quality Issue in ${aiAnalysis.fileName}`,
+          body: `AI analysis found ${aiAnalysis.severity} priority issues:\n\n${aiAnalysis.suggestions?.join('\n') || 'No details available'}`,
+          labels: ['code-quality', aiAnalysis.severity + '-priority']
+        });
+      }
+    });
+    
+    // Create issues (limit to prevent spam)
+    const issuesToCreate = criticalIssues.slice(0, automationConfig.maxIssuesPerRun || 3);
+    
+    for (const issue of issuesToCreate) {
+      try {
+        await createGitHubIssue(owner, repo, issue.title, issue.body, issue.labels);
+      } catch (error) {
+        console.error('Failed to create issue:', error);
+      }
+    }
+  }, [createGitHubIssue, automationConfig]);
+
+  // Execute bulk improvements with enhanced error handling
+  const executeBulkImprovements = useCallback(async () => {
+    if (!analysisResults || !analysisResults.ai_analysis?.length) {
+      showNotification('No analysis results available for improvements', 'warning');
+      return;
+    }
+    
+    const improvementsToImplement = analysisResults.ai_analysis
+      .filter(analysis => analysis.severity === 'high' || analysis.severity === 'critical')
+      .flatMap(analysis => analysis.suggestions || [])
+      .slice(0, automationConfig.maxImprovementsPerRun || 5);
+    
+    if (improvementsToImplement.length === 0) {
+      showNotification('No high-priority improvements to implement', 'info');
+      return;
+    }
+    
+    setIsProcessing(true);
+    setProcessingMessage(`Implementing ${improvementsToImplement.length} high-priority improvements...`);
+    
+    try {
+      const [owner, repo] = repoUrl.replace('https://github.com/', '').split('/');
+      let successCount = 0;
+      
+      for (const improvement of improvementsToImplement) {
+        try {
+          await executeImprovement(improvement, owner, repo);
+          successCount++;
+        } catch (error) {
+          console.error('Failed to implement improvement:', error);
+        }
+      }
+      
+      showNotification(
+        `Successfully implemented ${successCount}/${improvementsToImplement.length} improvements!`, 
+        successCount > 0 ? 'success' : 'warning'
+      );
+      
+    } catch (error) {
+      handleError(error, 'Bulk improvement implementation', showNotification);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+    }
+  }, [
+    analysisResults, 
+    automationConfig, 
+    setIsProcessing, 
+    setProcessingMessage, 
+    showNotification,
+    repoUrl
+  ]);
+
+  // Execute individual improvement
+  const executeImprovement = useCallback(async (improvement, owner, repo) => {
+    // This would need to be implemented based on the specific improvement type
+    // For now, we'll create a pull request with the suggested changes
+    
+    const branchName = `auto-improvement-${Date.now()}`;
+    const improvementDetails = typeof improvement === 'string' ? improvement : improvement.description;
+    
+    await createPullRequest(owner, repo, {
+      title: `Automated Improvement: ${improvementDetails.substring(0, 50)}...`,
+      head: branchName,
+      base: 'main',
+      body: `This PR contains automated improvements suggested by the analysis:\n\n${improvementDetails}`
+    });
+  }, [createPullRequest]);
+
+  // Automated testing function
+  const runAutomatedTests = useCallback(async () => {
+    setIsProcessing(true);
+    setProcessingMessage('Running automated tests...');
+    
+    try {
+      // This would integrate with your testing framework
+      // For now, we'll simulate test execution
+      
+      const testResults = {
+        passed: 0,
+        failed: 0,
+        coverage: 0,
+        duration: 0
+      };
+      
+      // Simulate test execution
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      showNotification('Automated tests completed', 'success');
+      return testResults;
+      
+    } catch (error) {
+      handleError(error, 'Automated testing', showNotification);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+    }
+  }, [setIsProcessing, setProcessingMessage, showNotification]);
+
+  // Generate comprehensive reports
+  const generateAnalysisReport = useCallback(() => {
+    if (!analysisResults) {
+      showNotification('No analysis results available', 'warning');
+      return null;
+    }
+    
+    const report = {
+      summary: analysisResults.summary,
+      timestamp: analysisResults.timestamp,
+      issues: analysisResults.structure_analysis.issues,
+      aiInsights: analysisResults.ai_analysis,
+      recommendations: {
+        immediate: [],
+        longTerm: [],
+        optional: []
+      }
+    };
+    
+    // Categorize recommendations based on severity
+    analysisResults.ai_analysis.forEach(analysis => {
+      if (analysis.severity === 'critical' || analysis.severity === 'high') {
+        report.recommendations.immediate.push(...(analysis.suggestions || []));
+      } else if (analysis.severity === 'medium') {
+        report.recommendations.longTerm.push(...(analysis.suggestions || []));
+      } else {
+        report.recommendations.optional.push(...(analysis.suggestions || []));
+      }
+    });
+    
+    return report;
+  }, [analysisResults, showNotification]);
+
+  return {
+    analyzeRepository,
+    executeBulkImprovements,
+    runAutomatedTests,
+    generateAnalysisReport,
+    createIssuesForCriticalProblems,
+    isOpenAIConfigured,
+    initializeOpenAI
+  };
+};

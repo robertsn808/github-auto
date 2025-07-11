@@ -1,0 +1,127 @@
+.
+├── New folder
+│   ├── asset-manifest.json
+│   ├── asset-manifest.json:Zone.Identifier
+│   ├── favicon.ico
+│   ├── favicon.ico:Zone.Identifier
+│   ├── index.html
+│   ├── index.html:Zone.Identifier
+│   ├── logo192.png
+│   ├── logo192.png:Zone.Identifier
+│   ├── logo512.png
+│   ├── logo512.png:Zone.Identifier
+│   ├── manifest.json
+│   ├── manifest.json:Zone.Identifier
+│   ├── robots.txt
+│   ├── robots.txt:Zone.Identifier
+│   └── static
+│       ├── css
+│       │   ├── main.f855e6bc.css
+│       │   ├── main.f855e6bc.css.map
+│       │   ├── main.f855e6bc.css.map:Zone.Identifier
+│       │   └── main.f855e6bc.css:Zone.Identifier
+│       └── js
+│           ├── 453.b885c528.chunk.js
+│           ├── 453.b885c528.chunk.js.map
+│           ├── 453.b885c528.chunk.js.map:Zone.Identifier
+│           ├── 453.b885c528.chunk.js:Zone.Identifier
+│           ├── main.89816cbd.js
+│           ├── main.89816cbd.js.LICENSE.txt
+│           ├── main.89816cbd.js.LICENSE.txt:Zone.Identifier
+│           ├── main.89816cbd.js.map
+│           ├── main.89816cbd.js.map:Zone.Identifier
+│           └── main.89816cbd.js:Zone.Identifier
+├── __init__.py
+├── __init__.py:Zone.Identifier
+├── __pycache__
+│   ├── __init__.cpython-311.pyc
+│   ├── __init__.cpython-311.pyc:Zone.Identifier
+│   ├── __init__.cpython-312.pyc
+│   └── main.cpython-312.pyc
+├── database
+│   ├── app.db
+│   └── app.db:Zone.Identifier
+├── main.py
+├── main.py:Zone.Identifier
+├── models
+│   ├── __pycache__
+│   │   ├── repository.cpython-311.pyc
+│   │   ├── repository.cpython-311.pyc:Zone.Identifier
+│   │   └── repository.cpython-312.pyc
+│   ├── repository.py
+│   ├── repository.py:Zone.Identifier
+│   ├── user.py
+│   └── user.py:Zone.Identifier
+├── routes
+│   ├── __pycache__
+│   │   ├── repository.cpython-311.pyc
+│   │   ├── repository.cpython-311.pyc:Zone.Identifier
+│   │   └── repository.cpython-312.pyc
+│   ├── repository.py
+│   ├── repository.py:Zone.Identifier
+│   ├── user.py
+│   └── user.py:Zone.Identifier
+├── static
+│   ├── asset-manifest.json
+│   ├── asset-manifest.json:Zone.Identifier
+│   ├── css
+│   │   ├── main.f855e6bc.css
+│   │   ├── main.f855e6bc.css.map
+│   │   ├── main.f855e6bc.css.map:Zone.Identifier
+│   │   ├── main.f855e6bc.css.map:Zone.Identifier:Zone.Identifier
+│   │   ├── main.f855e6bc.css:Zone.Identifier
+│   │   └── main.f855e6bc.css:Zone.Identifier:Zone.Identifier
+│   ├── favicon.ico
+│   ├── favicon.ico:Zone.Identifier
+│   ├── favicon.ico:Zone.Identifier:Zone.Identifier
+│   ├── index.html
+│   ├── index.html:Zone.Identifier
+│   ├── index.html:Zone.Identifier:Zone.Identifier
+│   ├── js
+│   │   ├── 453.b885c528.chunk.js
+│   │   ├── 453.b885c528.chunk.js.map
+│   │   ├── 453.b885c528.chunk.js.map:Zone.Identifier
+│   │   ├── 453.b885c528.chunk.js.map:Zone.Identifier:Zone.Identifier
+│   │   ├── 453.b885c528.chunk.js:Zone.Identifier
+│   │   ├── 453.b885c528.chunk.js:Zone.Identifier:Zone.Identifier
+│   │   ├── main.2455dbf8.js
+│   │   ├── main.2455dbf8.js.LICENSE.txt
+│   │   ├── main.2455dbf8.js.LICENSE.txt:Zone.Identifier
+│   │   ├── main.2455dbf8.js.LICENSE.txt:Zone.Identifier:Zone.Identifier
+│   │   ├── main.2455dbf8.js.map
+│   │   ├── main.2455dbf8.js.map:Zone.Identifier
+│   │   ├── main.2455dbf8.js.map:Zone.Identifier:Zone.Identifier
+│   │   ├── main.2455dbf8.js:Zone.Identifier
+│   │   └── main.2455dbf8.js:Zone.Identifier:Zone.Identifier
+│   ├── logo192.png
+│   ├── logo192.png:Zone.Identifier
+│   ├── logo192.png:Zone.Identifier:Zone.Identifier
+│   ├── logo512.png
+│   ├── logo512.png:Zone.Identifier
+│   ├── logo512.png:Zone.Identifier:Zone.Identifier
+│   ├── manifest.json
+│   ├── manifest.json:Zone.Identifier
+│   ├── manifest.json:Zone.Identifier:Zone.Identifier
+│   ├── robots.txt
+│   ├── robots.txt:Zone.Identifier
+│   ├── robots.txt:Zone.Identifier:Zone.Identifier
+│   └── static
+│       ├── css
+│       │   ├── main.f855e6bc.css
+│       │   ├── main.f855e6bc.css.map
+│       │   ├── main.f855e6bc.css.map:Zone.Identifier
+│       │   └── main.f855e6bc.css:Zone.Identifier
+│       └── js
+│           ├── 453.b885c528.chunk.js
+│           ├── 453.b885c528.chunk.js.map
+│           ├── 453.b885c528.chunk.js.map:Zone.Identifier
+│           ├── 453.b885c528.chunk.js:Zone.Identifier
+│           ├── main.2455dbf8.js
+│           ├── main.2455dbf8.js.LICENSE.txt
+│           ├── main.2455dbf8.js.LICENSE.txt:Zone.Identifier
+│           ├── main.2455dbf8.js.map
+│           ├── main.2455dbf8.js.map:Zone.Identifier
+│           └── main.2455dbf8.js:Zone.Identifier
+└── tree.txt
+
+17 directories, 108 files
